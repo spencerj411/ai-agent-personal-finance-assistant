@@ -1,14 +1,5 @@
 import { Configuration, PipelinesApi } from "@vectorize-io/vectorize-client";
-
-interface VectorizeDocument {
-  content: string;
-  metadata?: Record<string, any>;
-  score?: number;
-}
-
-interface VectorizeResponse {
-  documents: VectorizeDocument[];
-}
+import type { VectorizeDocument, VectorizeResponse } from "@/types/vectorize";
 
 export class VectorizeService {
   private pipelinesApi: any;
@@ -31,6 +22,8 @@ export class VectorizeService {
     numResults: number = 5
   ): Promise<VectorizeDocument[]> {
     try {
+      console.log("🔍 Vectorize Query:", { question, numResults });
+
       const response = await this.pipelinesApi.retrieveDocuments({
         organization: this.organizationId,
         pipeline: this.pipelineId,
@@ -39,6 +32,24 @@ export class VectorizeService {
           numResults,
         },
       });
+
+      console.log(
+        "📄 Vectorize Raw Response:",
+        JSON.stringify(response, null, 2)
+      );
+      console.log(
+        "📚 Vectorize Documents Count:",
+        response.documents?.length || 0
+      );
+
+      if (response.documents && response.documents.length > 0) {
+        console.log("📖 First Document Sample:", {
+          text: response.documents[0].text?.substring(0, 200) + "...",
+          source: response.documents[0].source,
+          relevancy: response.documents[0].relevancy,
+          similarity: response.documents[0].similarity,
+        });
+      }
 
       return response.documents || [];
     } catch (error: any) {
@@ -56,7 +67,7 @@ export class VectorizeService {
     }
 
     return documents
-      .map((doc, index) => `Document ${index + 1}:\n${doc.content}`)
+      .map((doc, index) => `Document ${index + 1}:\n${doc.text}`)
       .join("\n\n---\n\n");
   }
 }
