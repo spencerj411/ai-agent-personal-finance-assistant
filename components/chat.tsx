@@ -98,44 +98,71 @@ export default function Chat() {
                   message.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">
-                    {message.content}
-                  </p>
-                  <span className="text-xs opacity-70 mt-1 block">
-                    {new Date(
-                      message.createdAt || Date.now()
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
+                <div className="max-w-xs lg:max-w-md">
+                  {/* Sources at the top for assistant messages */}
+                  {message.role === "assistant" &&
+                    message.sources &&
+                    message.sources.length > 0 && (
+                      <SourcesDisplay sources={message.sources} />
+                    )}
+
+                  <div
+                    className={`px-4 py-2 rounded-lg ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">
+                      {message.content}
+                    </p>
+                    <span className="text-xs opacity-70 mt-1 block">
+                      {new Date(
+                        message.createdAt || Date.now()
+                      ).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
-              {message.role === "assistant" &&
-                message.sources &&
-                message.sources.length > 0 && (
-                  <div className={`flex justify-start`}>
-                    <SourcesDisplay sources={message.sources} />
-                  </div>
-                )}
             </div>
           ))
         )}
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-muted text-muted-foreground max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+            <div className="bg-muted max-w-xs lg:max-w-md px-4 py-3 rounded-lg">
+              <div className="flex items-center gap-3">
+                {/* Animated AI icon */}
+                <div className="relative w-8 h-8">
+                  <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
+                  <div className="relative flex items-center justify-center w-8 h-8 bg-primary/10 rounded-full">
+                    <span className="text-primary text-sm animate-pulse">
+                      🤖
+                    </span>
+                  </div>
+                </div>
+
+                {/* Loading text and animation */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Thinking
+                    </span>
+                    <div className="flex gap-0.5">
+                      <span className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce"></span>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mt-2 h-1 bg-muted-foreground/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary/50 rounded-full animate-[loading_1.5s_ease-in-out_infinite]"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
