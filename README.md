@@ -38,7 +38,14 @@ Before setting up this project, you'll need:
 
 2. **Set up environment variables**
 
-   Create a `.env.local` file in the root directory with the following variables:
+   Create a `.env.local` file in the root directory of your project:
+
+   ```bash
+   # Create the file (from project root)
+   touch .env.local
+   ```
+
+   Open the file in your editor and add the following variables:
 
    ```env
    # OpenAI Configuration
@@ -50,24 +57,57 @@ Before setting up this project, you'll need:
    VECTORIZE_PIPELINE_ID=your_vectorize_pipeline_id_here
    ```
 
+   **Important**: The `.env.local` file is automatically ignored by git, keeping your API keys secure.
+
 ## 🔑 Environment Variables Setup
 
 ### OpenAI API Key
 
 1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Create a new API key
-3. Copy the key and add it to your `.env.local` file
+2. Sign in or create an account
+3. Click "Create new secret key"
+4. Give your key a name (e.g., "rag-next-app")
+5. Copy the generated key immediately (you won't see it again!)
+6. In your `.env.local` file, replace `your_openai_api_key_here` with your actual key:
+   ```env
+   OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+   ```
 
 ### Vectorize.io Configuration
 
 1. Sign up at [Vectorize.io](https://vectorize.io)
 2. Create a new organization
-3. Set up a pipeline for document retrieval
-4. Generate an access token with retrieval permissions
-5. Copy the following from your Vectorize dashboard:
-   - Pipeline Access Token
-   - Organization ID
-   - Pipeline ID
+3. Navigate to your organization settings
+4. Create a new pipeline:
+   - Choose "Document Retrieval" as the pipeline type
+   - Configure your pipeline settings
+   - Save the pipeline
+5. Generate an access token:
+   - Go to "API Tokens" in your organization settings
+   - Create a new token with "Retrieval Access" permissions
+   - Copy the token
+6. From your Vectorize dashboard, copy these values to your `.env.local`:
+   ```env
+   VECTORIZE_PIPELINE_ACCESS_TOKEN=eyJhbGciOi... (your full token)
+   VECTORIZE_ORGANIZATION_ID=527d9a27-c34a-4d0a-8fde-... (your org ID)
+   VECTORIZE_PIPELINE_ID=aip0c318-344a-4721-a9e7-... (your pipeline ID)
+   ```
+
+### Verifying Your Setup
+
+After adding all environment variables, your `.env.local` file should look similar to this:
+
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+
+# Vectorize.io Configuration
+VECTORIZE_PIPELINE_ACCESS_TOKEN=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+VECTORIZE_ORGANIZATION_ID=527d9a27-c34a-4d0a-8fde-1129a57eb5b8
+VECTORIZE_PIPELINE_ID=aip0c318-344a-4721-a9e7-5526c96d9b49
+```
+
+**Note**: Never commit your `.env.local` file to version control!
 
 ## 🚀 Getting Started
 
