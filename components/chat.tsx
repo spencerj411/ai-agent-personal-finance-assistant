@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ChatSource } from "@/types/chat";
 import SourcesDisplay from "./sources-display";
+import { loadingMessages } from "@/lib/consts";
 
 interface Message {
   id: string;
@@ -14,24 +15,6 @@ interface Message {
 interface MessageWithSources extends Message {
   sources?: ChatSource[];
 }
-
-const loadingMessages = [
-  "Thinking",
-  "Analyzing sources",
-  "Searching knowledge base",
-  "Processing your request",
-  "Crafting response",
-  "Consulting the archives",
-  "Gathering insights",
-  "Connecting the dots",
-  "Diving deep",
-  "Synthesizing information",
-  "Contemplating",
-  "Researching",
-  "Formulating answer",
-  "Accessing memory banks",
-  "Computing response",
-];
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageWithSources[]>([]);
@@ -114,7 +97,6 @@ export default function Chat() {
       });
 
       const data = await response.json();
-      console.log("📚 Response with sources:", data);
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to get response");

@@ -20,7 +20,6 @@ export async function POST(req: Request) {
         contextDocuments =
           vectorizeService.formatDocumentsForContext(documents);
         sources = vectorizeService.convertDocumentsToChatSources(documents);
-        console.log("📤 Sources found:", sources.length);
       } catch (vectorizeError) {
         console.error("Vectorize retrieval failed:", vectorizeError);
         contextDocuments =
@@ -37,7 +36,9 @@ When answering questions, use the following context documents to provide accurat
 ${contextDocuments}
 === END CONTEXT DOCUMENTS ===
 
-Please base your responses on the context provided above when relevant. If the context doesn't contain information to answer the question, acknowledge this and provide general knowledge while being clear about what information comes from the context vs. your general knowledge.`;
+Please base your responses on the context provided above when relevant. If the context doesn't contain information to answer the question, acknowledge this and provide general knowledge while being clear about what information comes from the context vs. your general knowledge
+Keep your answer to less than 10 sentences.
+.`;
 
     const result = await generateText({
       model: openai("gpt-4o-mini"),
