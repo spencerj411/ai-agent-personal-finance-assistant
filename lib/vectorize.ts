@@ -1,5 +1,6 @@
 import { Configuration, PipelinesApi } from "@vectorize-io/vectorize-client";
 import type { VectorizeDocument, VectorizeResponse } from "@/types/vectorize";
+import type { ChatSource } from "@/types/chat";
 
 export class VectorizeService {
   private pipelinesApi: any;
@@ -69,5 +70,17 @@ export class VectorizeService {
     return documents
       .map((doc, index) => `Document ${index + 1}:\n${doc.text}`)
       .join("\n\n---\n\n");
+  }
+
+  convertDocumentsToChatSources(documents: VectorizeDocument[]): ChatSource[] {
+    return documents.map((doc) => ({
+      id: doc.id,
+      title: doc.source_display_name || doc.source,
+      url: doc.source,
+      snippet:
+        doc.text.substring(0, 200) + (doc.text.length > 200 ? "..." : ""),
+      relevancy: doc.relevancy,
+      similarity: doc.similarity,
+    }));
   }
 }
