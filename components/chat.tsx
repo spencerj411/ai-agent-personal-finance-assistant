@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ChatSource } from "@/types/chat";
 import SourcesDisplay from "./sources-display";
 
@@ -15,10 +15,77 @@ interface MessageWithSources extends Message {
   sources?: ChatSource[];
 }
 
+const loadingMessages = [
+  "Thinking",
+  "Analyzing sources",
+  "Searching knowledge base",
+  "Processing your request",
+  "Crafting response",
+  "Consulting the archives",
+  "Gathering insights",
+  "Connecting the dots",
+  "Diving deep",
+  "Synthesizing information",
+  "Contemplating",
+  "Researching",
+  "Formulating answer",
+  "Accessing memory banks",
+  "Computing response",
+];
+
 export default function Chat() {
   const [messages, setMessages] = useState<MessageWithSources[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (!isLoading) return;
+
+    // Set initial random message
+    setLoadingMessage(
+      loadingMessages[Math.floor(Math.random() * loadingMessages.length)]
+    );
+
+    const changeMessage = () => {
+      setLoadingMessage((prev) => {
+        // Get a different message than the current one
+        let newMessage;
+        do {
+          newMessage =
+            loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+        } while (newMessage === prev && loadingMessages.length > 1);
+        return newMessage;
+      });
+    };
+
+    // Random interval between 1.5 and 3.5 seconds
+    const getRandomInterval = () => 1500 + Math.random() * 2000;
+
+    let timeoutId: NodeJS.Timeout;
+    const scheduleNext = () => {
+      timeoutId = setTimeout(() => {
+        changeMessage();
+        scheduleNext();
+      }, getRandomInterval());
+    };
+
+    scheduleNext();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +149,10 @@ export default function Chat() {
         <h1 className="text-xl font-semibold text-foreground">Chat</h1>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+      >
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground mt-8">
             <p>Start a conversation by typing a message below.</p>
@@ -98,7 +168,7 @@ export default function Chat() {
                   message.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                <div className="max-w-xs lg:max-w-md">
+                <div className="max-w-md lg:max-w-2xl">
                   {/* Sources at the top for assistant messages */}
                   {message.role === "assistant" &&
                     message.sources &&
@@ -133,7 +203,7 @@ export default function Chat() {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-muted max-w-xs lg:max-w-md px-4 py-3 rounded-lg">
+            <div className="bg-muted max-w-md lg:max-w-2xl px-4 py-3 rounded-lg">
               <div className="flex items-center gap-3">
                 {/* Animated AI icon */}
                 <div className="relative w-8 h-8">
@@ -148,8 +218,11 @@ export default function Chat() {
                 {/* Loading text and animation */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      Thinking
+                    <span
+                      key={loadingMessage}
+                      className="text-sm text-muted-foreground animate-fade-in"
+                    >
+                      {loadingMessage}
                     </span>
                     <div className="flex gap-0.5">
                       <span className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -167,6 +240,9 @@ export default function Chat() {
             </div>
           </div>
         )}
+
+        {/* Invisible element to scroll to */}
+        <div ref={messagesEndRef} />
       </div>
 
       <form onSubmit={handleSubmit} className="border-t border-border p-4">

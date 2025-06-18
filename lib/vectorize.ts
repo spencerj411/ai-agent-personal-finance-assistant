@@ -77,8 +77,7 @@ export class VectorizeService {
       id: doc.id,
       title: doc.source_display_name || doc.source,
       url: doc.source,
-      snippet:
-        doc.text.substring(0, 200) + (doc.text.length > 200 ? "..." : ""),
+      snippet: doc.text, // Full text content for hover display
       relevancy: doc.relevancy,
       similarity: doc.similarity,
     }));
