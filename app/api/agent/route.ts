@@ -32,9 +32,7 @@ export async function POST(req: Request) {
     model: openai("gpt-4o"),
     system: "You are a helpful assistant.",
     messages,
-    onStepFinish(result) {
-      console.log(result);
-    },
+    onStepFinish(result) {},
     tools: {
       getLocation: {
         description: "Get the location of the user",
