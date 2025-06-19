@@ -128,6 +128,16 @@ VECTORIZE_PIPELINE_ID=aip0c318-344a-4721-a9e7-5526c96d9b49
 
 ## 🏗️ Application Architecture
 
+### Sequence Diagram
+
+The following sequence diagram illustrates the complete interaction flow for both RAG Chat and Agent Chat functionalities:
+
+![Sequence Diagram](./sequence_diagram.png)
+
+*This diagram shows the step-by-step interactions between users, frontend components, API endpoints, services, and external APIs for both RAG and Agent chat flows.*
+
+### Architecture Overview
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              FRONTEND (Next.js)                            │
