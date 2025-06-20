@@ -72,10 +72,14 @@ export default function AgentsSDKPage() {
                     setMessages((prev) => {
                       const newMessages = [...prev];
                       const lastIndex = newMessages.length - 1;
-                      if (lastIndex >= 0 && newMessages[lastIndex].role === "assistant") {
+                      if (
+                        lastIndex >= 0 &&
+                        newMessages[lastIndex].role === "assistant"
+                      ) {
                         newMessages[lastIndex] = {
                           ...newMessages[lastIndex],
-                          content: newMessages[lastIndex].content + parsed.content
+                          content:
+                            newMessages[lastIndex].content + parsed.content,
                         };
                       }
                       return newMessages;
