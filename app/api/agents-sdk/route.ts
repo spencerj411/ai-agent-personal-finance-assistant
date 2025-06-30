@@ -1,28 +1,11 @@
-import { Agent, Runner, tool } from "@openai/agents";
+import { Agent, Runner, MCPServerStdio } from "@openai/agents";
 import { openai } from "@ai-sdk/openai";
 import { aisdk } from "@openai/agents-extensions";
 import { z } from "zod";
-import { RetrievalService } from "@/lib/retrieval";
 
 interface AgentMessage {
   role: "user" | "assistant";
   content: string;
-}
-
-function getLocation() {
-  return { lat: 37.7749, lon: -122.4194 };
-}
-
-function getWeather({
-  lat,
-  lon,
-  unit,
-}: {
-  lat: number;
-  lon: number;
-  unit: "C" | "F";
-}) {
-  return { value: 25, description: "Sunny" };
 }
 
 export async function POST(req: Request) {
@@ -31,109 +14,70 @@ export async function POST(req: Request) {
 
     const model = aisdk(openai("gpt-4o"));
 
-    const agent = new Agent({
-      name: "AI SDK Agent Assistant",
-      instructions: `You are a helpful assistant that can access location data, weather information, and proprietary document sources. 
-      
-      When users ask questions:
-      1. Use available tools to gather relevant information
-      2. Provide comprehensive answers based on the data retrieved
-      3. Be clear about what information comes from which sources`,
-      model,
-      tools: [
-        tool({
-          name: "getLocation",
-          description: "Get the current location of the user",
-          parameters: z.object({}),
-          execute: async () => {
-            const { lat, lon } = getLocation();
-            return `Current location: latitude ${lat}, longitude ${lon}`;
-          },
-        }),
-        tool({
-          name: "getWeather",
-          description: "Get weather information for a specific location",
-          parameters: z.object({
-            lat: z.number().describe("The latitude of the location"),
-            lon: z.number().describe("The longitude of the location"),
-            unit: z
-              .enum(["C", "F"])
-              .describe("The unit to display the temperature in"),
-          }),
-          execute: async ({ lat, lon, unit }) => {
-            const { value, description } = getWeather({ lat, lon, unit });
-            return `Weather: ${value}°${unit}, ${description}`;
-          },
-        }),
-        tool({
-          name: "searchDocuments",
-          description:
-            "Search through proprietary document sources for relevant information",
-          parameters: z.object({
-            query: z
-              .string()
-              .describe("The search query to find relevant documents"),
-          }),
-          execute: async ({ query }) => {
-            const retrievalService = new RetrievalService();
-            const documents = await retrievalService.searchDocuments(query);
-            return `Search completed for query: ${query}. Documents retrieved: ${documents}.`;
-          },
-        }),
-      ],
+    const personalFinanceMcpServer = new MCPServerStdio({
+      name: "Personal Finance MCP Server",
+      fullCommand: "/Users/darramos/.nvm/versions/node/v24.3.0/bin/npx -y mcp-remote http://localhost:3000/mcp",
     });
 
-    const latestMessage = messages[messages.length - 1];
-    if (!latestMessage || latestMessage.role !== "user") {
-      return Response.json(
-        { error: "Invalid message format" },
-        { status: 400 }
-      );
-    }
+    await personalFinanceMcpServer.connect();
 
-    const runner = new Runner({
-      model,
-    });
+    try {
+      const agent = new Agent({
+        name: "AI SDK Agent Assistant",
+        instructions: `You are a personal finance assistant. Before the user can log or view expenses, they must complete their setup using the 'user_setup' tool. The tool requires:
+        - annual_income: a number (e.g., 50000)
+        - goals: a string (e.g., "save 10000 by year-end")
+        - budgets: a JSON string of category-amount pairs (e.g., '{"needs": 1000, "wants": 1000}')
+        
+        Parse the user's input to extract these values. For example, from "50,000 a year, save 10,000 by the end of the year and 1000 a month for both needs and wants," extract:
+        - annual_income: 50000
+        - goals: "save 10000 by the end of the year"
+        - budgets: '{"needs": 1000, "wants": 1000}'
+        
+        If the input is unclear, ask the user to provide the required details. If the tool fails due to an invalid budgets format, respond with: "Invalid budgets format. Please provide a valid JSON string, like '{\"needs\": 1000, \"wants\": 1000}'." For unrelated requests, say: "I only handle expense tracking and setup."`,
+        model,
+        mcpServers: [personalFinanceMcpServer],
+      });
 
-    const stream = await runner.run(agent, latestMessage.content, {
-      stream: true,
-    });
+      const runner = new Runner({ model });
 
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          const textStream = stream.toTextStream({
-            compatibleWithNodeStreams: false,
-          });
+      const fullContext = messages.map(m => `${m.role}: ${m.content}`).join("\n");
+      const stream = await runner.run(agent, fullContext, { stream: true });
 
-          for await (const chunk of textStream) {
-            const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
-            controller.enqueue(encoder.encode(data));
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            const textStream = stream.toTextStream({ compatibleWithNodeStreams: false });
+            for await (const chunk of textStream) {
+              const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
+              controller.enqueue(encoder.encode(data));
+            }
+            await stream.completed;
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          } catch (error) {
+            console.error("Streaming error:", error);
+            controller.error(error);
+          } finally {
+            await personalFinanceMcpServer.close();
+            controller.close();
           }
+        },
+      });
 
-          await stream.completed;
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        } catch (error) {
-          console.error("Streaming error:", error);
-          controller.error(error);
-        }
-      },
-    });
-
-    return new Response(readable, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
-    });
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    } catch (error) {
+      console.error("Error in agents SDK endpoint:", error);
+      return Response.json({ error: "Failed to process request with Agents SDK" }, { status: 500 });
+    }
   } catch (error) {
     console.error("Error in agents SDK endpoint:", error);
-    return Response.json(
-      { error: "Failed to process request with Agents SDK" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Failed to process request with Agents SDK" }, { status: 500 });
   }
 }

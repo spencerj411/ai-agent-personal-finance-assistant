@@ -112,7 +112,7 @@ export default function AgentsSDKPage() {
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">OpenAI Agents SDK Demo</h1>
+        <h1 className="text-3xl font-bold mb-2">Personal Finance Assistant Demo</h1>
         <p className="text-gray-600">
           Test the OpenAI Agents SDK with AI SDK adapter integration
         </p>
