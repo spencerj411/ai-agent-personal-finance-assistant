@@ -1,4 +1,4 @@
-import { Agent, Runner, MCPServerStdio } from "@openai/agents";
+import { Agent, Runner, tool, MCPServerStreamableHttp } from "@openai/agents";
 import { openai } from "@ai-sdk/openai";
 import { aisdk } from "@openai/agents-extensions";
 import { z } from "zod";
@@ -10,74 +10,90 @@ interface AgentMessage {
 
 export async function POST(req: Request) {
   try {
+    // const dateTimeMcpServer = new MCPServerStreamableHttp({
+    //   url: 'https://server.smithery.ai/@chirag127/date-and-time-mcp-server/mcp?api_key=802a7544-1363-4daf-ba0e-d17558b20cf5&profile=evil-mole-5KxwUV',
+    //   name: 'Date and Time MCP Server',
+    // });
+
+    const personalFinanceMcpServer = new MCPServerStreamableHttp({
+      url: 'http://localhost:3000/mcp',
+      name: 'Personal Finance Assistant MCP Server',
+    });
+
     const { messages }: { messages: AgentMessage[] } = await req.json();
 
     const model = aisdk(openai("gpt-4o"));
 
-    const personalFinanceMcpServer = new MCPServerStdio({
-      name: "Personal Finance MCP Server",
-      fullCommand: "/Users/darramos/.nvm/versions/node/v24.3.0/bin/npx -y mcp-remote http://localhost:3000/mcp",
+    const agent = new Agent({
+      name: "AI SDK Agent Assistant",
+      instructions: `You are a helpful personal finance assistant that keeps track of the user's income budget, goals and expenses. 
+      
+      When users ask questions:
+      1. Use available tools to gather relevant information
+      2. Provide comprehensive answers based on the data retrieved
+      3. Be clear about what information comes from which sources`,
+      model,
+      mcpServers: [ personalFinanceMcpServer ],
     });
 
+    // await dateTimeMcpServer.connect();
     await personalFinanceMcpServer.connect();
-
-    try {
-      const agent = new Agent({
-        name: "AI SDK Agent Assistant",
-        instructions: `You are a personal finance assistant. Before the user can log or view expenses, they must complete their setup using the 'user_setup' tool. The tool requires:
-        - annual_income: a number (e.g., 50000)
-        - goals: a string (e.g., "save 10000 by year-end")
-        - budgets: a JSON string of category-amount pairs (e.g., '{"needs": 1000, "wants": 1000}')
-        
-        Parse the user's input to extract these values. For example, from "50,000 a year, save 10,000 by the end of the year and 1000 a month for both needs and wants," extract:
-        - annual_income: 50000
-        - goals: "save 10000 by the end of the year"
-        - budgets: '{"needs": 1000, "wants": 1000}'
-        
-        If the input is unclear, ask the user to provide the required details. If the tool fails due to an invalid budgets format, respond with: "Invalid budgets format. Please provide a valid JSON string, like '{\"needs\": 1000, \"wants\": 1000}'." For unrelated requests, say: "I only handle expense tracking and setup."`,
-        model,
-        mcpServers: [personalFinanceMcpServer],
-      });
-
-      const runner = new Runner({ model });
-
-      const fullContext = messages.map(m => `${m.role}: ${m.content}`).join("\n");
-      const stream = await runner.run(agent, fullContext, { stream: true });
-
-      const encoder = new TextEncoder();
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            const textStream = stream.toTextStream({ compatibleWithNodeStreams: false });
-            for await (const chunk of textStream) {
-              const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
-              controller.enqueue(encoder.encode(data));
-            }
-            await stream.completed;
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          } catch (error) {
-            console.error("Streaming error:", error);
-            controller.error(error);
-          } finally {
-            await personalFinanceMcpServer.close();
-            controller.close();
-          }
-        },
-      });
-
-      return new Response(readable, {
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
-    } catch (error) {
-      console.error("Error in agents SDK endpoint:", error);
-      return Response.json({ error: "Failed to process request with Agents SDK" }, { status: 500 });
+    const latestMessage = messages[messages.length - 1];
+    if (!latestMessage || latestMessage.role !== "user") {
+      return Response.json(
+        { error: "Invalid message format" },
+        { status: 400 }
+      );
     }
+
+    const runner = new Runner({
+      model,
+    });
+
+    const stream = await runner.run(agent, latestMessage.content, {
+      stream: true,
+    });
+
+
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          const textStream = stream.toTextStream({
+            compatibleWithNodeStreams: false,
+          });
+          
+          for await (const chunk of textStream) {
+            const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
+            controller.enqueue(encoder.encode(data));
+          }
+
+          await stream.completed;
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          // await dateTimeMcpServer.close();
+          await personalFinanceMcpServer.close();
+        } catch (error) {
+          console.error("Streaming error:", error);
+          // await dateTimeMcpServer.close();
+          await personalFinanceMcpServer.close();
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error) {
     console.error("Error in agents SDK endpoint:", error);
-    return Response.json({ error: "Failed to process request with Agents SDK" }, { status: 500 });
+    return Response.json(
+      { error: "Failed to process request with Agents SDK" },
+      { status: 500 }
+    );
   }
 }
