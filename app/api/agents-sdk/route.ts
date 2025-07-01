@@ -1,43 +1,46 @@
-import { Agent, Runner, tool, MCPServerStreamableHttp } from "@openai/agents";
+import { Agent, Runner, MCPServerStreamableHttp, AgentInputItem } from "@openai/agents";
 import { openai } from "@ai-sdk/openai";
 import { aisdk } from "@openai/agents-extensions";
-import { z } from "zod";
 
 interface AgentMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-export async function POST(req: Request) {
-  try {
-    // const dateTimeMcpServer = new MCPServerStreamableHttp({
-    //   url: 'https://server.smithery.ai/@chirag127/date-and-time-mcp-server/mcp?api_key=802a7544-1363-4daf-ba0e-d17558b20cf5&profile=evil-mole-5KxwUV',
-    //   name: 'Date and Time MCP Server',
-    // });
+let personalFinanceMcpServer: MCPServerStreamableHttp | null = null;
+let thread: AgentInputItem[] = [];
 
-    const personalFinanceMcpServer = new MCPServerStreamableHttp({
+async function getOrCreateMcpServer() {
+  if (!personalFinanceMcpServer) {
+    personalFinanceMcpServer = new MCPServerStreamableHttp({
       url: 'http://localhost:3000/mcp',
       name: 'Personal Finance Assistant MCP Server',
     });
+    await personalFinanceMcpServer.connect();
+    console.log('MCP server connected');
+  }
+  return personalFinanceMcpServer;
+}
+
+export async function POST(req: Request) {
+  try {
+    const mcpServer = await getOrCreateMcpServer();
 
     const { messages }: { messages: AgentMessage[] } = await req.json();
-
     const model = aisdk(openai("gpt-4o"));
 
     const agent = new Agent({
-      name: "AI SDK Agent Assistant",
+      name: "Personal Finance Agent",
       instructions: `You are a helpful personal finance assistant that keeps track of the user's income budget, goals and expenses. 
       
       When users ask questions:
-      1. Use available tools to gather relevant information
-      2. Provide comprehensive answers based on the data retrieved
-      3. Be clear about what information comes from which sources`,
+      1. Use available tools to assist in anything personal finance related.
+      2. Provide comprehensive but concise answers based on the data retrieved.
+      3. If the user asks questions not relevant to personal finance, be clear and polite about how your only job is to assist with personal finance`,
       model,
-      mcpServers: [ personalFinanceMcpServer ],
+      mcpServers: [mcpServer],
     });
 
-    // await dateTimeMcpServer.connect();
-    await personalFinanceMcpServer.connect();
     const latestMessage = messages[messages.length - 1];
     if (!latestMessage || latestMessage.role !== "user") {
       return Response.json(
@@ -46,14 +49,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const runner = new Runner({
-      model,
-    });
+    const runner = new Runner({ model });
+    const stream = await runner.run(
+      agent,
+      thread.concat({ role: 'user', content: latestMessage.content }),
+      { stream: true }
+    );
 
-    const stream = await runner.run(agent, latestMessage.content, {
-      stream: true,
-    });
-
+    thread = stream.history;
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
@@ -71,12 +74,8 @@ export async function POST(req: Request) {
           await stream.completed;
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
-          // await dateTimeMcpServer.close();
-          await personalFinanceMcpServer.close();
         } catch (error) {
           console.error("Streaming error:", error);
-          // await dateTimeMcpServer.close();
-          await personalFinanceMcpServer.close();
           controller.error(error);
         }
       },
