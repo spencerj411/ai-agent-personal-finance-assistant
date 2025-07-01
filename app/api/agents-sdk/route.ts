@@ -36,7 +36,8 @@ export async function POST(req: Request) {
       When users ask questions:
       1. Use available tools to assist in anything personal finance related.
       2. Provide comprehensive but concise answers based on the data retrieved.
-      3. If the user asks questions not relevant to personal finance, be clear and polite about how your only job is to assist with personal finance`,
+      3. If the user asks questions not relevant to personal finance, be clear and polite about how your only job is to assist with personal finance
+      4. When a user doesnt specify a category, take the iniative to categorise it yourself using typical categories in personal finance`,
       model,
       mcpServers: [mcpServer],
     });
@@ -57,6 +58,8 @@ export async function POST(req: Request) {
     );
 
     thread = stream.history;
+    console.log('thread');
+    console.log(thread);
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
